@@ -1,0 +1,30 @@
+# Configuration files
+*.conf
+
+# Temp/log/cache files
+*.temp
+*.tmp
+*.log
+*.cache
+
+# Editor/IDE folders
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Dependency directories
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Private keys
+*.pem
+*.key
