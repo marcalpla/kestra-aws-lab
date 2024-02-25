@@ -11,9 +11,9 @@ while getopts ":r:n:a:" opt; do
   case $opt in
     r) AWS_REGION=$OPTARG ;;
     n) NAME=$OPTARG ;;
-    a) AWS_PROFILE=$OPTARG ;;
+    a) export AWS_PROFILE=$OPTARG ;;
     \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
-    :) echo "Option -$OPTARG requires an argument." >&2; exit 1 ;;
+    :) echo "Option -$OPTARG requires an argument" >&2; exit 1 ;;
   esac
 done
 

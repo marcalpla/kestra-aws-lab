@@ -6,6 +6,7 @@
 *.tmp
 *.log
 *.cache
+.*_temp_template.yaml
 
 # Editor/IDE folders
 .idea/
@@ -28,3 +29,6 @@ coverage/
 # Private keys
 *.pem
 *.key
+
+dev.yaml
+dev.sh

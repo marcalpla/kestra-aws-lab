@@ -1,0 +1,1 @@
+./kestra-ee server standalone
