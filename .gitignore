@@ -30,5 +30,5 @@ coverage/
 *.pem
 *.key
 
-dev.yaml
-dev.sh
+config/dev*.yaml
+init/dev*.sh

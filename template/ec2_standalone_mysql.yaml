@@ -27,6 +27,11 @@ Parameters:
     Default: ""
     NoEcho: true
 
+  PrivateIpAddress1:
+    Type: String
+    Default: ""
+    Description: Private IP address for the Kestra EC2 instance
+
   EbsVolumeId1:
     Type: String
     Default: ""
@@ -35,7 +40,12 @@ Parameters:
   EbsVolumeId2:
     Type: String
     Default: ""
-    Description: EBS Volume for Postgres storage
+    Description: EBS Volume for Mysql storage
+
+  VaultToken:
+    Type: String
+    Default: ""
+    NoEcho: true
 
   TagKey:
     Type: String
@@ -55,14 +65,10 @@ Parameters:
     Default: ""
     NoEcho: true
 
-  PostgresUser:
+  DatabaseUser:
     Type: String
     Default: kestra
-  PostgresPassword:
-    Type: String
-    NoEcho: true
-
-  VaultToken:
+  DatabasePassword:
     Type: String
     NoEcho: true
 
@@ -73,9 +79,11 @@ Conditions:
     - !Not [ !Equals [ !Ref SshTunnelUser, "" ] ]
     - !Not [ !Equals [ !Ref SshTunnelPassword, "" ] ]
 
+  PrivateIpAddress1Specified: !Not [ !Equals [ !Ref PrivateIpAddress1, "" ] ]
+
   EbsVolumeId1Specified: !Not [ !Equals [ !Ref EbsVolumeId1, "" ] ]
   EbsVolumeId2Specified: !Not [ !Equals [ !Ref EbsVolumeId2, "" ] ]
-  
+
   TagSpecified: !And 
     - !Not [ !Equals [ !Ref TagKey, "" ] ]
     - !Not [ !Equals [ !Ref TagValue, "" ] ]
@@ -170,13 +178,13 @@ Resources:
         - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
           Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
 
-  SecurityGroupIngressPostgres:
+  SecurityGroupIngressMysql:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       GroupId: !Ref SecurityGroup
       IpProtocol: tcp
-      FromPort: 5432
-      ToPort: 5432
+      FromPort: 3306
+      ToPort: 3306
       SourceSecurityGroupId: !Ref SecurityGroup
 
   SecurityGroupIngressHttp:
@@ -212,11 +220,11 @@ Resources:
         - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
           Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
 
-  PostgresServiceDiscoveryService:
+  MysqlServiceDiscoveryService:
     Type: AWS::ServiceDiscovery::Service
     Properties:
-      Name: !Sub ${Name}Postgres
-      Description: Discover PostgreSQL service
+      Name: !Sub ${Name}Mysql
+      Description: Discover Mysql service
       NamespaceId: 
         Ref: CloudMapNamespace
       DnsConfig:
@@ -227,7 +235,7 @@ Resources:
         FailureThreshold: 1    
       Tags:
         - Key: Name
-          Value: !Sub ${Name}Postgres
+          Value: !Sub ${Name}Mysql
         - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
           Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
 
@@ -236,7 +244,7 @@ Resources:
   KestraEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t3.xlarge
+      InstanceType: t3.large
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
@@ -251,11 +259,15 @@ Resources:
           GroupSet:
             - !Ref SecurityGroup
           SubnetId: !If [ ShouldCreateNetwork, !Ref SubnetA, !Ref ExistingSubnetId ]
-      # KeyName: key pair name
+          PrivateIpAddress: !If [ PrivateIpAddress1Specified, !Ref PrivateIpAddress1, !Ref AWS::NoValue ]
+      KeyName: marcal.pla.quadis.eu-south-2
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
+          # Update system packages
+          yum update -y
+
           # Install Docker
           amazon-linux-extras install docker -y
           service docker start
@@ -264,16 +276,22 @@ Resources:
           # Create a Docker network
           docker network create ${Name}
 
-          # Download and run the Vault image
-          docker run -d --name ${Name}Vault \
-            --network ${Name} \
-            -e VAULT_DEV_ROOT_TOKEN_ID=${VaultToken} \
-            -e VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200 \
-            --restart unless-stopped \
-            --log-driver=awslogs \
-            --log-opt awslogs-region=${AWS::Region} \
-            --log-opt awslogs-group=${KestraEC2LogGroup} \
-            hashicorp/vault:latest server -dev
+          # Download and run the Vault image if the token is present
+          if [ "${VaultToken}" != "" ]; then
+            docker run -d --name ${Name}Vault \
+              --network ${Name} \
+              -e VAULT_DEV_ROOT_TOKEN_ID=${VaultToken} \
+              -e VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200 \
+              --restart unless-stopped \
+              --log-driver=awslogs \
+              --log-opt awslogs-region=${AWS::Region} \
+              --log-opt awslogs-group=${KestraEC2LogGroup} \
+              hashicorp/vault:latest server -dev
+          fi
+
+          # Create a directory for Kestra working directory
+          KESTRA_WORKING_DIRECTORY_PATH=/tmp/kestra-wd
+          mkdir -p $KESTRA_WORKING_DIRECTORY_PATH   
 
           # Create a directory for Kestra storage
           KESTRA_STORAGE_PATH=/app/storage
@@ -292,7 +310,7 @@ Resources:
             if [ "$FS_TYPE" == "data" ]; then
               mkfs -t ext4 $DEVICE
             else
-              KESTRA_INIT_SCRIPT="./kestra-ee server standalone"
+              KESTRA_INIT_SCRIPT="./kestra-ee server standalone --worker-thread=128"
             fi
             mount $DEVICE $MOUNT_POINT
             echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
@@ -316,11 +334,13 @@ Resources:
           # Download and run the Kestra image
           docker run -d --name ${Name} \
             --network ${Name} \
+            --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
             -v $KESTRA_STORAGE_PATH:/app/storage \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            --user=root \
+            -v $KESTRA_WORKING_DIRECTORY_PATH:/tmp/kestra-wd \
             -p 8080:8080 \
+            -p 8081:8081 \
             --restart unless-stopped \
             --log-driver=awslogs \
             --log-opt awslogs-region=${AWS::Region} \
@@ -334,10 +354,10 @@ Resources:
         - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
           Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
 
-  PostgresEC2Instance:
+  MysqlEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t3.large
+      InstanceType: t3.medium
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
@@ -352,12 +372,12 @@ Resources:
           GroupSet:
             - !Ref SecurityGroup
           SubnetId: !If [ ShouldCreateNetwork, !Ref SubnetA, !Ref ExistingSubnetId ]
-      # KeyName: key pair name
+      KeyName: marcal.pla.quadis.eu-south-2
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          # Actualizar los paquetes del sistema y asegurar que AWS CLI esté instalado
+          # Update system packages and ensure AWS CLI is installed
           yum update -y
           yum install -y aws-cli
 
@@ -366,21 +386,21 @@ Resources:
           service docker start
           systemctl enable docker
 
-          # Create a directory for Postgres storage
-          POSTGRES_DATA_PATH=/var/lib/postgresql/data
-          mkdir -p $POSTGRES_DATA_PATH
+          # Create a directory for Mysql storage
+          MYSQL_DATA_PATH=/var/lib/mysql
+          mkdir -p $MYSQL_DATA_PATH
 
-          # Mount the EBS volume for Postgres storage if present
+          # Mount the EBS volume for Mysql storage if present
           if [ ! -z "${EbsVolumeId2}" ]; then
             DEVICE=$(readlink -f /dev/sdf)
-            MOUNT_POINT=$POSTGRES_DATA_PATH
+            MOUNT_POINT=$MYSQL_DATA_PATH
             FS_TYPE=$(file -s $DEVICE | cut -d' ' -f2)
             # If the volume is not formatted, format it and prepare it
             if [ "$FS_TYPE" == "data" ]; then
               mkfs -t ext4 $DEVICE
               mount $DEVICE $MOUNT_POINT
               rm -rf $MOUNT_POINT/lost+found
-              chown 999:999 $MOUNT_POINT            
+              chown 1000:1000 $MOUNT_POINT            
             else
               mount $DEVICE $MOUNT_POINT
             fi
@@ -388,22 +408,33 @@ Resources:
           fi
 
           # Register the instance with the service discovery service
-          aws servicediscovery register-instance --service-id ${PostgresServiceDiscoveryService} --instance-id $(curl http://169.254.169.254/latest/meta-data/instance-id) --attributes AWS_INSTANCE_IPV4=$(curl http://169.254.169.254/latest/meta-data/local-ipv4) --region ${AWS::Region}
+          aws servicediscovery register-instance --service-id ${MysqlServiceDiscoveryService} --instance-id $(curl http://169.254.169.254/latest/meta-data/instance-id) --attributes AWS_INSTANCE_IPV4=$(curl http://169.254.169.254/latest/meta-data/local-ipv4) --region ${AWS::Region}
 
-          docker run -d --name ${Name}Postgres \
-            -e POSTGRES_PASSWORD=${PostgresPassword} \
-            -e POSTGRES_USER=${PostgresUser} \
-            -e POSTGRES_DB=kestra \
-            -v $POSTGRES_DATA_PATH:/var/lib/postgresql/data \
-            -p 5432:5432 \
+          # Create a custom MySQL configuration file to allow function creation
+          CUSTOM_MYSQL_CONFIG_PATH=/home/ec2-user
+          CUSTOM_MYSQL_CONFIG_FILE=custom-mysql.cnf
+          echo "[mysqld]
+          log_bin_trust_function_creators=1" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
+          chown 1000:1000 $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
+
+          # Run Docker container for the Mysql server
+          docker run -d --name ${Name}Mysql \
+            -e MYSQL_RANDOM_ROOT_PASSWORD=yes \
+            -e MYSQL_USER=${DatabaseUser} \
+            -e MYSQL_PASSWORD=${DatabasePassword} \
+            -e MYSQL_DATABASE=kestra \
+            -v $MYSQL_DATA_PATH:/var/lib/mysql \
+            -v $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE:/etc/mysql/conf.d/$CUSTOM_MYSQL_CONFIG_FILE:ro \
+            -p 3306:3306 \
+            --user 1000:1000 \
             --restart unless-stopped \
             --log-driver=awslogs \
             --log-opt awslogs-region=${AWS::Region} \
-            --log-opt awslogs-group=${PostgresEC2LogGroup} \
-            postgres:latest
+            --log-opt awslogs-group=${MysqlEC2LogGroup} \
+            mysql:8.0
       Tags:
         - Key: Name
-          Value: !Sub ${Name}Postgres
+          Value: !Sub ${Name}Mysql
         - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
           Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
 
@@ -465,7 +496,7 @@ Resources:
     Condition: EbsVolumeId2Specified
     Properties:
       Device: /dev/sdf
-      InstanceId: !Ref PostgresEC2Instance
+      InstanceId: !Ref MysqlEC2Instance
       VolumeId: !Ref EbsVolumeId2
 
   # Logs
@@ -480,13 +511,13 @@ Resources:
         - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
           Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
   
-  PostgresEC2LogGroup:
+  MysqlEC2LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /ec2/${Name}Postgres
+      LogGroupName: !Sub /ec2/${Name}Mysql
       Tags:
         - Key: Name
-          Value: !Sub ${Name}Postgres
+          Value: !Sub ${Name}Mysql
         - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
           Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
 

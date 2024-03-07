@@ -1,6 +1,6 @@
 # Kestra AWS Lab
 
-Deploys [Kestra](https://kestra.io/) environments to AWS for development and testing, and allows high customization with CloudFormation templates, on-demand launch and termination of services to save costs, and ensures data persistence on EBS and EFS volumes.
+Deploys [Kestra](https://kestra.io/) environments to AWS for development and testing purposes, and allows high customization with CloudFormation templates, on-demand launch and termination of services to save costs, and ensures data persistence on EBS and EFS volumes.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ Deploys [Kestra](https://kestra.io/) environments to AWS for development and tes
 Execute the following command to create the environment:
 
 ```bash
-./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-T TAG] [-i KESTRA_IMAGE] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE] [-s KESTRA_INIT_SCRIPT] [-U POSTGRES_USER] [-P POSTGRES_PASSWORD] [-a AWS_PROFILE]
+./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
 ```
 
 Parameters:
@@ -26,14 +26,16 @@ Parameters:
 * `-c`: (Optional) Create a network; requires -u and -p.
 * `-b` and `-v`: Subnet ID and VPC ID (required if not creating a network).
 * `-u` and `-p`: SSH Tunnel User and Password (required for network creation).
-* `-x` and `-y`: (Optional) Comma-separated EBS and EFS volume IDs to use for the Kestra and Postgres storage.
+* `-I`: (Optional) Comma-separated private IP addresses to use for the Kestra and Database services.
+* `-x` and `-y`: (Optional) Comma-separated EBS and EFS volume IDs to use for the Kestra and Database storage.
+* `-V`: (Optional) Create a Vault service.
 * `-T`: (Optional) Tag in Key=Value format.
 * `-i`: (Optional) Kestra image (default: kestra/kestra:latest-full).
 * `-e` and `-f`: (Optional) Kestra image repository user and password.
 * `-k`: (Optional) Kestra config file (default: default.yaml).
 * `-s`: (Optional) Kestra init script (default: default.sh).
-* `-U`: (Optional) Postgres user (default: kestra).
-* `-P`: (Optional) Postgres password (default: random generated password).
+* `-U`: (Optional) Database user (default: kestra).
+* `-P`: (Optional) Database password (default: random generated password).
 * `-a`: (Optional) AWS profile.
 
 ### Cleanup
@@ -54,7 +56,7 @@ Execute the following command to instantiate the services:
 ./run.sh -r AWS_REGION -n NAME [-a AWS_PROFILE]
 ```
 
-The Kestra and Postgres services will mount the volumes to ensure data persistence.
+The Kestra and Database services will mount the volumes to ensure data persistence.
 
 ### Stopping
 
@@ -66,4 +68,4 @@ Halts all running services but retains the volumes and its data.
 
 ## Configuration
 
-The Cloudformation stack is defined in the template file from the `template` directory. In the `config` directory, you can find the configuration file passed to the Kestra container. In the `init` directory, you can find the init script that will be executed when the Kestra container starts for the first time.
+The Cloudformation stack is defined in the template file from the `template` directory. In the `config` directory, you can find the configuration file passed to the Kestra service. In the `init` directory, you can find the init script that will be executed when the Kestra service starts for the first time.

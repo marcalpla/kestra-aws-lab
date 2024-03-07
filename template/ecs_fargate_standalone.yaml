@@ -27,6 +27,10 @@ Parameters:
     Default: ""
     NoEcho: true
 
+  VaultToken:
+    Type: String
+    NoEcho: true
+
   TagKey:
     Type: String
     Default: ""
@@ -45,14 +49,10 @@ Parameters:
     Default: ""
     NoEcho: true
 
-  PostgresUser:
+  DatabaseUser:
     Type: String
     Default: kestra
-  PostgresPassword:
-    Type: String
-    NoEcho: true
-    
-  VaultToken:
+  DatabasePassword:
     Type: String
     NoEcho: true
 
@@ -356,7 +356,7 @@ Resources:
       ExecutionRoleArn: !Ref ECSTaskExecutionRole    
       ContainerDefinitions:
         - Name: !Sub ${Name}Postgres
-          Image: postgres:latest
+          Image: postgres:15.3
           PortMappings:
             - ContainerPort: 5432
           MountPoints:
@@ -366,9 +366,9 @@ Resources:
             - Name: POSTGRES_DB
               Value: kestra
             - Name: POSTGRES_USER
-              Value: !Ref PostgresUser
+              Value: !Ref DatabaseUser
             - Name: POSTGRES_PASSWORD
-              Value: !Ref PostgresPassword
+              Value: !Ref DatabasePassword
           LogConfiguration:
             LogDriver: awslogs
             Options:

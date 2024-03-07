@@ -2,8 +2,8 @@ datasources:
   postgres:
     url: jdbc:postgresql://${Name}Postgres.${Name}:5432/kestra
     driverClassName: org.postgresql.Driver
-    username: ${PostgresUser}
-    password: ${PostgresPassword}
+    username: ${DatabaseUser}
+    password: ${DatabasePassword}
 kestra:
   server:
     basic-auth:
@@ -16,6 +16,12 @@ kestra:
     type: local
     local:
       base-path: "/app/storage"
+  secret:
+    type: vault
+    vault:
+      address: "http://${Name}Vault:8200"
+      token:
+        token: ${VaultToken}      
   queue:
     type: postgres
   tasks:

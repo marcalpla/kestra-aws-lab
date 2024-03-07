@@ -1,10 +1,12 @@
 #!/bin/bash
 # Deploy the stack to AWS
-# Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U POSTGRES_USER (default: kestra)] [-P POSTGRES_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
+# Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
 # Note: -t flag is the name of the file in the template directory
 # Note: -c flag creates a network. -b and -v are required if not creating a network
 # Note: -u and -p must be used together if creating a network
+# Note: -P flag is a comma-separated list of private IP addresses
 # Note: Use commas to separate multiple EBS (-x) and EFS (-y) volume IDs. Example: -x vol-123,vol-456
+# Note: -V flag is used to indicate that the stack should create a Vault 
 # Note: Tag format for -T flag should be Key=Value
 # Note: -k and -s flags are the names of the files in the config and init directories, respectively
 # Note: -U and -P flags are the username and password to use for the Postgres database
@@ -15,18 +17,20 @@
 set -eo pipefail
 
 CREATE_NETWORK=false
+PRIVATE_IP_ADDRESSES=()
 EBS_VOLUME_IDS=()
 EFS_VOLUME_IDS=()
+CREATE_VAULT=false
 TAG_KEY=""
 TAG_VALUE=""
 KESTRA_IMAGE="kestra/kestra:latest-full"
 KESTRA_IMAGE_REPOSITORY_USER=""
 KESTRA_IMAGE_REPOSITORY_PASSWORD=""
 KESTRA_CONFIG_FILE="config/default.yaml"
-POSTGRES_USER="kestra"
-POSTGRES_PASSWORD=$(openssl rand -base64 12)
+DATABASE_USER="kestra"
+DATABASE_PASSWORD=$(openssl rand -base64 12)
 
-while getopts ":r:n:t:cb:v:u:p:x::y::T:i:e:f:k:s:U:P:a:" opt; do
+while getopts ":r:n:t:cb:v:u:p:I:x:y:VT:i:e:f:k:s:U:P:a:" opt; do
   case $opt in
     r) AWS_REGION=$OPTARG ;;
     n) NAME=$OPTARG ;;
@@ -36,8 +40,10 @@ while getopts ":r:n:t:cb:v:u:p:x::y::T:i:e:f:k:s:U:P:a:" opt; do
     v) VPC_ID=$OPTARG ;;    
     u) SSH_TUNNEL_USER=$OPTARG ;;
     p) SSH_TUNNEL_PASSWORD=$OPTARG ;;
+    I) IFS=',' read -r -a PRIVATE_IP_ADDRESSES <<< "$OPTARG" ;;
     x) IFS=',' read -r -a EBS_VOLUME_IDS <<< "$OPTARG" ;;
     y) IFS=',' read -r -a EFS_VOLUME_IDS <<< "$OPTARG" ;;
+    V) CREATE_VAULT=true ;;
     T)
       IFS='=' read -r TAG_KEY TAG_VALUE <<< "$OPTARG"
       if [ -z "$TAG_KEY" ] || [ -z "$TAG_VALUE" ]; then
@@ -50,8 +56,8 @@ while getopts ":r:n:t:cb:v:u:p:x::y::T:i:e:f:k:s:U:P:a:" opt; do
     f) KESTRA_IMAGE_REPOSITORY_PASSWORD=$OPTARG ;;    
     k) KESTRA_CONFIG_FILE="config/$OPTARG" ;;
     s) KESTRA_INIT_SCRIPT="init/$OPTARG" ;;
-    U) POSTGRES_USER=$OPTARG ;;
-    P) POSTGRES_PASSWORD=$OPTARG ;;
+    U) DATABASE_USER=$OPTARG ;;
+    P) DATABASE_PASSWORD=$OPTARG ;;
     a) export AWS_PROFILE=$OPTARG ;;
     \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
     :) echo "Option -$OPTARG requires an argument" >&2; exit 1 ;;
@@ -85,7 +91,7 @@ fi
 
 # Check if the required parameters are set
 if [ -z "$AWS_REGION" ] || [ -z "$NAME" ] || [ -z "$TEMPLATE_FILE" ]; then
-  echo "Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U POSTGRES_USER (default: kestra)] [-P POSTGRES_PASSWORD (default: random generated password)] [-a AWS_PROFILE]"
+  echo "Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]"
   exit 1
 fi
 
@@ -100,9 +106,8 @@ params=(
   "ParameterKey=Name,ParameterValue=$NAME"
   "ParameterKey=CreateNetwork,ParameterValue=$(echo $CREATE_NETWORK)"
   "ParameterKey=KestraImage,ParameterValue=$KESTRA_IMAGE"
-  "ParameterKey=PostgresUser,ParameterValue=$POSTGRES_USER"
-  "ParameterKey=PostgresPassword,ParameterValue=$POSTGRES_PASSWORD"
-  "ParameterKey=VaultToken,ParameterValue=$(openssl rand -base64 12)"
+  "ParameterKey=DatabaseUser,ParameterValue=$DATABASE_USER"
+  "ParameterKey=DatabasePassword,ParameterValue=$DATABASE_PASSWORD"
 )
 
 # Add existing network parameters if not creating a network
@@ -121,6 +126,13 @@ if [[ -n $SSH_TUNNEL_USER && -n $SSH_TUNNEL_PASSWORD ]]; then
   )
 fi
 
+# Add private IP addresses parameters if provided
+if [ ${#PRIVATE_IP_ADDRESSES[@]} -ne 0 ]; then
+  for i in "${!PRIVATE_IP_ADDRESSES[@]}"; do
+    params+=("ParameterKey=PrivateIpAddress$((i+1)),ParameterValue=${PRIVATE_IP_ADDRESSES[$i]}")
+  done
+fi
+
 # Add EBS volume IDs parameters if provided
 if [ ${#EBS_VOLUME_IDS[@]} -ne 0 ]; then
   for i in "${!EBS_VOLUME_IDS[@]}"; do
@@ -133,6 +145,13 @@ if [ ${#EFS_VOLUME_IDS[@]} -ne 0 ]; then
   for i in "${!EFS_VOLUME_IDS[@]}"; do
     params+=("ParameterKey=EfsVolumeId$((i+1)),ParameterValue=${EFS_VOLUME_IDS[$i]}")
   done
+fi
+
+# Add Vault parameters if creating a Vault
+if [[ $CREATE_VAULT = true ]]; then
+  params+=(
+    "ParameterKey=VaultToken,ParameterValue=$(openssl rand -base64 12)"
+  )
 fi
 
 # Add tag parameters if provided
