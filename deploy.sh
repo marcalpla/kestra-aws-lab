@@ -1,10 +1,11 @@
 #!/bin/bash
 # Deploy the stack to AWS
-# Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAGS] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
+# Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-K KEY_PAIR_NAME] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAGS] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
 # Note: -t flag is the name of the file in the template directory
 # Note: -c flag creates a network. -b and -v are required if not creating a network
 # Note: -u and -p must be used together if creating a network
-# Note: -P flag is a comma-separated list of private IP addresses
+# Note: -I flag is a comma-separated list of private IP addresses
+# Note: -K flag is the name of the key pair to use for the EC2 instances
 # Note: Use commas to separate multiple EBS (-x) and EFS (-y) volume IDs. Example: -x vol-123,vol-456
 # Note: -V flag is used to indicate that the stack should create a Vault 
 # Note: -T flag is a comma-separated list of tags in the format Key=Value
@@ -29,7 +30,7 @@ KESTRA_CONFIG_FILE="config/default.yaml"
 DATABASE_USER="kestra"
 DATABASE_PASSWORD=$(openssl rand -base64 12)
 
-while getopts ":r:n:t:cb:v:u:p:I:x:y:VT:i:e:f:k:s:U:P:a:" opt; do
+while getopts ":r:n:t:cb:v:u:p:I:K:x:y:VT:i:e:f:k:s:U:P:a:" opt; do
   case $opt in
     r) AWS_REGION=$OPTARG ;;
     n) NAME=$OPTARG ;;
@@ -40,6 +41,7 @@ while getopts ":r:n:t:cb:v:u:p:I:x:y:VT:i:e:f:k:s:U:P:a:" opt; do
     u) SSH_TUNNEL_USER=$OPTARG ;;
     p) SSH_TUNNEL_PASSWORD=$OPTARG ;;
     I) IFS=',' read -r -a PRIVATE_IP_ADDRESSES <<< "$OPTARG" ;;
+    K) KEY_PAIR_NAME=$OPTARG ;;
     x) IFS=',' read -r -a EBS_VOLUME_IDS <<< "$OPTARG" ;;
     y) IFS=',' read -r -a EFS_VOLUME_IDS <<< "$OPTARG" ;;
     V) CREATE_VAULT=true ;;
@@ -126,6 +128,11 @@ if [ ${#PRIVATE_IP_ADDRESSES[@]} -ne 0 ]; then
       params+=("ParameterKey=PrivateIpAddress$((i+1)),ParameterValue=${PRIVATE_IP_ADDRESSES[$i]}")
     fi
   done
+fi
+
+# Add key pair name parameter if provided
+if [ -n "$KEY_PAIR_NAME" ]; then
+  params+=("ParameterKey=KeyPairName,ParameterValue=$KEY_PAIR_NAME")
 fi
 
 # Add EBS volume IDs parameters if provided

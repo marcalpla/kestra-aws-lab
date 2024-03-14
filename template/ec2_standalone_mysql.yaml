@@ -32,6 +32,10 @@ Parameters:
     Default: ""
     Description: Private IP address for the Kestra EC2 instance
 
+  KeyPairName:
+    Type: String
+    Default: "" 
+
   EbsVolumeId1:
     Type: String
     Default: ""
@@ -97,6 +101,8 @@ Conditions:
     - !Not [ !Equals [ !Ref SshTunnelPassword, "" ] ]
 
   PrivateIpAddress1Specified: !Not [ !Equals [ !Ref PrivateIpAddress1, "" ] ]
+
+  KeyPairNameSpecified: !Not [ !Equals [ !Ref KeyPairName, "" ] ]
 
   EbsVolumeId1Specified: !Not [ !Equals [ !Ref EbsVolumeId1, "" ] ]
   EbsVolumeId2Specified: !Not [ !Equals [ !Ref EbsVolumeId2, "" ] ]
@@ -208,7 +214,7 @@ Resources:
       AvailabilityZone: !Sub ${AWS::Region}a
       Tags:
         - Key: Name
-          Value: !Sub ${Name}-SubnetA
+          Value: !Sub ${Name}A
         - !If
           - Tag1Specified
           - Key: !Ref TagKey1
@@ -339,7 +345,7 @@ Resources:
             - !Ref SecurityGroup
           SubnetId: !If [ ShouldCreateNetwork, !Ref SubnetA, !Ref ExistingSubnetId ]
           PrivateIpAddress: !If [ PrivateIpAddress1Specified, !Ref PrivateIpAddress1, !Ref AWS::NoValue ]
-      KeyName: marcal.pla.quadis.eu-south-2
+      KeyName: !If [ KeyPairNameSpecified, !Ref KeyPairName, !Ref AWS::NoValue ]
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
         Fn::Base64: !Sub |
@@ -464,7 +470,7 @@ Resources:
           GroupSet:
             - !Ref SecurityGroup
           SubnetId: !If [ ShouldCreateNetwork, !Ref SubnetA, !Ref ExistingSubnetId ]
-      KeyName: marcal.pla.quadis.eu-south-2
+      KeyName: !If [ KeyPairNameSpecified, !Ref KeyPairName, !Ref AWS::NoValue ]
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
         Fn::Base64: !Sub |
@@ -556,7 +562,7 @@ Resources:
           GroupSet:
             - !Ref SecurityGroup
           SubnetId: !If [ ShouldCreateNetwork, !Ref SubnetA, !Ref ExistingSubnetId ]
-      # KeyName: key pair name
+      # KeyName: !If [ KeyPairNameSpecified, !Ref KeyPairName, !Ref AWS::NoValue ]
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
         Fn::Base64: !Sub |
@@ -728,7 +734,7 @@ Resources:
                 Resource: '*'
       Tags:
         - Key: Name
-          Value: !Sub ${Name}ECSTaskExecutionRole
+          Value: !Sub ${Name}EC2Role
         - !If
           - Tag1Specified
           - Key: !Ref TagKey1
