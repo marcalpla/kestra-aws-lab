@@ -1,13 +1,13 @@
 #!/bin/bash
 # Deploy the stack to AWS
-# Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
+# Usage: ./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAGS] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
 # Note: -t flag is the name of the file in the template directory
 # Note: -c flag creates a network. -b and -v are required if not creating a network
 # Note: -u and -p must be used together if creating a network
 # Note: -P flag is a comma-separated list of private IP addresses
 # Note: Use commas to separate multiple EBS (-x) and EFS (-y) volume IDs. Example: -x vol-123,vol-456
 # Note: -V flag is used to indicate that the stack should create a Vault 
-# Note: Tag format for -T flag should be Key=Value
+# Note: -T flag is a comma-separated list of tags in the format Key=Value
 # Note: -k and -s flags are the names of the files in the config and init directories, respectively
 # Note: -U and -P flags are the username and password to use for the Postgres database
 
@@ -21,8 +21,7 @@ PRIVATE_IP_ADDRESSES=()
 EBS_VOLUME_IDS=()
 EFS_VOLUME_IDS=()
 CREATE_VAULT=false
-TAG_KEY=""
-TAG_VALUE=""
+TAGS=()
 KESTRA_IMAGE="kestra/kestra:latest-full"
 KESTRA_IMAGE_REPOSITORY_USER=""
 KESTRA_IMAGE_REPOSITORY_PASSWORD=""
@@ -44,13 +43,7 @@ while getopts ":r:n:t:cb:v:u:p:I:x:y:VT:i:e:f:k:s:U:P:a:" opt; do
     x) IFS=',' read -r -a EBS_VOLUME_IDS <<< "$OPTARG" ;;
     y) IFS=',' read -r -a EFS_VOLUME_IDS <<< "$OPTARG" ;;
     V) CREATE_VAULT=true ;;
-    T)
-      IFS='=' read -r TAG_KEY TAG_VALUE <<< "$OPTARG"
-      if [ -z "$TAG_KEY" ] || [ -z "$TAG_VALUE" ]; then
-        echo "Tag must be in the format Key=Value"
-        exit 1
-      fi
-      ;;
+    T) IFS=',' read -r -a TAGS <<< "$OPTARG" ;;
     i) KESTRA_IMAGE=$OPTARG ;;
     e) KESTRA_IMAGE_REPOSITORY_USER=$OPTARG ;;
     f) KESTRA_IMAGE_REPOSITORY_PASSWORD=$OPTARG ;;    
@@ -129,21 +122,27 @@ fi
 # Add private IP addresses parameters if provided
 if [ ${#PRIVATE_IP_ADDRESSES[@]} -ne 0 ]; then
   for i in "${!PRIVATE_IP_ADDRESSES[@]}"; do
-    params+=("ParameterKey=PrivateIpAddress$((i+1)),ParameterValue=${PRIVATE_IP_ADDRESSES[$i]}")
+    if [ -n "${PRIVATE_IP_ADDRESSES[$i]}" ]; then
+      params+=("ParameterKey=PrivateIpAddress$((i+1)),ParameterValue=${PRIVATE_IP_ADDRESSES[$i]}")
+    fi
   done
 fi
 
 # Add EBS volume IDs parameters if provided
 if [ ${#EBS_VOLUME_IDS[@]} -ne 0 ]; then
   for i in "${!EBS_VOLUME_IDS[@]}"; do
-    params+=("ParameterKey=EbsVolumeId$((i+1)),ParameterValue=${EBS_VOLUME_IDS[$i]}")
+    if [ -n "${EBS_VOLUME_IDS[$i]}" ]; then
+      params+=("ParameterKey=EbsVolumeId$((i+1)),ParameterValue=${EBS_VOLUME_IDS[$i]}")
+    fi
   done
 fi
 
 # Add EFS volume IDs parameters if provided
 if [ ${#EFS_VOLUME_IDS[@]} -ne 0 ]; then
   for i in "${!EFS_VOLUME_IDS[@]}"; do
-    params+=("ParameterKey=EfsVolumeId$((i+1)),ParameterValue=${EFS_VOLUME_IDS[$i]}")
+    if [ -n "${EFS_VOLUME_IDS[$i]}" ]; then
+      params+=("ParameterKey=EfsVolumeId$((i+1)),ParameterValue=${EFS_VOLUME_IDS[$i]}")
+    fi
   done
 fi
 
@@ -154,12 +153,14 @@ if [[ $CREATE_VAULT = true ]]; then
   )
 fi
 
-# Add tag parameters if provided
-if [ -n "$TAG_KEY" ] && [ -n "$TAG_VALUE" ]; then
-  params+=(
-    "ParameterKey=TagKey,ParameterValue=$TAG_KEY"
-    "ParameterKey=TagValue,ParameterValue=$TAG_VALUE"
-  )
+# Add tags parameters if provided
+if [ ${#TAGS[@]} -ne 0 ]; then
+  for i in "${!TAGS[@]}"; do
+    if [ -n "${TAGS[$i]}" ]; then
+      params+=("ParameterKey=TagKey$((i+1)),ParameterValue=$(echo ${TAGS[$i]} | cut -d'=' -f1)")
+      params+=("ParameterKey=TagValue$((i+1)),ParameterValue=$(echo ${TAGS[$i]} | cut -d'=' -f2)")
+    fi
+  done
 fi
 
 # Add Kestra image repository user and password parameters if provided

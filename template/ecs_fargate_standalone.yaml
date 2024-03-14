@@ -31,12 +31,22 @@ Parameters:
     Type: String
     NoEcho: true
 
-  TagKey:
+  TagKey1:
     Type: String
     Default: ""
-  TagValue:
+    Description: Tag key for all resources
+  TagValue1:
     Type: String
     Default: ""
+    Description: Tag value for all resources
+  TagKey2:
+    Type: String
+    Default: ""
+    Description: Tag key for all resources
+  TagValue2:
+    Type: String
+    Default: ""
+    Description: Tag value for all resources
 
   KestraImage:
     Type: String
@@ -63,9 +73,12 @@ Conditions:
     - !Not [ !Equals [ !Ref SshTunnelUser, "" ] ]
     - !Not [ !Equals [ !Ref SshTunnelPassword, "" ] ]
   
-  TagSpecified: !And 
-    - !Not [ !Equals [ !Ref TagKey, "" ] ]
-    - !Not [ !Equals [ !Ref TagValue, "" ] ]
+  Tag1Specified: !And 
+    - !Not [ !Equals [ !Ref TagKey1, "" ] ]
+    - !Not [ !Equals [ !Ref TagValue1, "" ] ]
+  Tag2Specified: !And
+    - !Not [ !Equals [ !Ref TagKey2, "" ] ]
+    - !Not [ !Equals [ !Ref TagValue2, "" ] ]
 
   HasKestraImageRepositoryCredentials: !And
     - !Not [ !Equals [ !Ref KestraImageRepositoryUser, "" ] ]
@@ -85,8 +98,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -95,8 +116,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   GatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -113,8 +142,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   InternetRoute:
     Type: AWS::EC2::Route
@@ -141,8 +178,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}A
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   # Security Group
 
@@ -154,8 +199,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   SecurityGroupIngressPostgres:
     Type: AWS::EC2::SecurityGroupIngress
@@ -205,8 +258,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   PostgresServiceDiscoveryService:
     Type: AWS::ServiceDiscovery::Service
@@ -224,8 +285,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}Postgres
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]        
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue    
   
   # ECS Cluster and EFS
 
@@ -236,8 +305,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   EfsFileSystem:
     Type: AWS::EFS::FileSystem
@@ -249,8 +326,16 @@ Resources:
       FileSystemTags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   EfsMountTarget1:
     Type: AWS::EFS::MountTarget
@@ -276,8 +361,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}ImageRepositoryCredentials
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   KestraTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -340,8 +433,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   PostgresTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -382,8 +483,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}Postgres
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   SshTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -426,8 +535,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}Ssh
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   # ECS Services
 
@@ -450,8 +567,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   PostgresService:
     Type: AWS::ECS::Service
@@ -474,8 +599,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}Postgres
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   SshService:
     Type: AWS::ECS::Service
@@ -497,8 +630,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}Ssh
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]   
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   # Logs
   
@@ -509,8 +650,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
   
   PostgresServiceLogGroup:
     Type: AWS::Logs::LogGroup
@@ -519,8 +668,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}Postgres
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   SshServiceLogGroup:
     Type: AWS::Logs::LogGroup
@@ -530,8 +687,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}Ssh
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]    
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   # Roles and Policies
 
@@ -578,8 +743,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}ECSTaskExecutionRole
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
 
   ECSTaskRole:
     Type: AWS::IAM::Role
@@ -596,5 +769,13 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Name}TaskRole
-        - Key: !If [ TagSpecified, !Ref TagKey, !Ref AWS::NoValue ]
-          Value: !If [ TagSpecified, !Ref TagValue, !Ref AWS::NoValue ]  
+        - !If
+          - Tag1Specified
+          - Key: !Ref TagKey1
+            Value: !Ref TagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - Tag2Specified
+          - Key: !Ref TagKey2
+            Value: !Ref TagValue2
+          - !Ref AWS::NoValue
