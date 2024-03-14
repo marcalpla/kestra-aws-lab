@@ -15,7 +15,7 @@ Deploys [Kestra](https://kestra.io/) environments to AWS for development and tes
 Execute the following command to create the environment:
 
 ```bash
-./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
+./deploy.sh -r AWS_REGION -n NAME -t TEMPLATE_FILE [-c] [-b SUBNET_ID -v VPC_ID] [-u SSH_TUNNEL_USER -p SSH_TUNNEL_PASSWORD] [-I PRIVATE_IP_ADDRESSES] [-K KEY_PAIR_NAME] [-x EBS_VOLUME_IDS] [-y EFS_VOLUME_IDS] [-V] [-T TAG] [-i KESTRA_IMAGE (default: kestra/kestra:latest-full)] [-e KESTRA_IMAGE_REPOSITORY_USER -f KESTRA_IMAGE_REPOSITORY_PASSWORD] [-k KESTRA_CONFIG_FILE (default: default.yaml)] [-s KESTRA_INIT_SCRIPT (default: default.sh)] [-U DATABASE_USER (default: kestra)] [-P DATABASE_PASSWORD (default: random generated password)] [-a AWS_PROFILE]
 ```
 
 Parameters:
@@ -27,6 +27,7 @@ Parameters:
 * `-b` and `-v`: Subnet ID and VPC ID (required if not creating a network).
 * `-u` and `-p`: SSH Tunnel User and Password (required for network creation).
 * `-I`: (Optional) Comma-separated private IP addresses to use for the Kestra and Database services.
+* `-K`: (Optional) Key Pair Name to use for the EC2 instances.
 * `-x` and `-y`: (Optional) Comma-separated EBS and EFS volume IDs to use for the Kestra and Database storage.
 * `-V`: (Optional) Create a Vault service.
 * `-T`: (Optional) Tag in Key=Value format.
