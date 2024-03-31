@@ -406,7 +406,7 @@ Resources:
             if [ "$FS_TYPE" == "data" ]; then
               mkfs -t ext4 $DEVICE
             else
-              KESTRA_INIT_SCRIPT="./kestra-ee server standalone --worker-thread=128"
+              KESTRA_INIT_SCRIPT="./kestra-ee server standalone --worker-thread=24"
             fi
             mount $DEVICE $MOUNT_POINT
             echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
@@ -432,7 +432,8 @@ Resources:
             --network ${Name} \
             --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
-            -e JAVA_OPTS="-Dcom.sun.management.jmxremote \
+            -e JAVA_OPTS="-Xmx7g \
+              -Dcom.sun.management.jmxremote \
               -Dcom.sun.management.jmxremote.port=1099 \
               -Dcom.sun.management.jmxremote.rmi.port=1099 \
               -Dcom.sun.management.jmxremote.ssl=false \
@@ -531,7 +532,18 @@ Resources:
           CUSTOM_MYSQL_CONFIG_PATH=/home/ec2-user
           CUSTOM_MYSQL_CONFIG_FILE=custom-mysql.cnf
           echo "[mysqld]
-          log_bin_trust_function_creators=1" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
+          log_bin_trust_function_creators=1
+          sort_buffer_size=2M
+          max_connections=280
+          innodb_buffer_pool_size=2G
+          innodb_log_file_size=512M
+          innodb_flush_log_at_trx_commit=2
+          thread_cache_size=8
+          table_open_cache=2000
+          innodb_file_per_table=1
+          innodb_flush_method=O_DIRECT
+          tmp_table_size=64M
+          max_heap_table_size=64M" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
           chown 1000:1000 $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
 
           # Run Docker container for the Mysql server
@@ -548,7 +560,7 @@ Resources:
             --log-driver=awslogs \
             --log-opt awslogs-region=${AWS::Region} \
             --log-opt awslogs-group=${MysqlEC2LogGroup} \
-            mysql:8.0
+            mysql:8.3
       Tags:
         - Key: Name
           Value: !Sub ${Name}Mysql
@@ -648,6 +660,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ec2/${Name}
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}
@@ -666,6 +679,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ec2/${Name}Mysql
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}Mysql
@@ -684,7 +698,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Condition: ShouldCreateSshTunnel
     Properties:
-      LogGroupName: !Sub /ec2/${Name}Ssh   
+      LogGroupName: !Sub /ec2/${Name}Ssh
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}Ssh

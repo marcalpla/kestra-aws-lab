@@ -395,7 +395,7 @@ Resources:
             if [ "$FS_TYPE" == "data" ]; then
               mkfs -t ext4 $DEVICE
             else
-              KESTRA_INIT_SCRIPT="./kestra-ee server standalone --worker-thread=128"
+              KESTRA_INIT_SCRIPT="./kestra-ee server standalone --worker-thread=24"
             fi
             mount $DEVICE $MOUNT_POINT
             echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
@@ -421,6 +421,7 @@ Resources:
             --network ${Name} \
             --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
+            -e JAVA_OPTS="-Xmx7g" \
             -v $KESTRA_STORAGE_PATH:/app/storage \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $KESTRA_WORKING_DIRECTORY_PATH:/tmp/kestra-wd \
@@ -619,6 +620,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ec2/${Name}
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}
@@ -637,6 +639,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ec2/${Name}Postgres
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}Postgres
@@ -655,7 +658,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Condition: ShouldCreateSshTunnel
     Properties:
-      LogGroupName: !Sub /ec2/${Name}Ssh   
+      LogGroupName: !Sub /ec2/${Name}Ssh
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}Ssh

@@ -404,6 +404,8 @@ Resources:
             - Name: KESTRA_CONFIGURATION
               Value: !Sub |
                 KESTRA_CONFIGURATION_PLACEHOLDER
+            - Name: JAVA_OPTS
+              Value: -Xmx7g
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -647,6 +649,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ecs/${Name}
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}
@@ -665,6 +668,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ecs/${Name}Postgres
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}Postgres
@@ -683,7 +687,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Condition: ShouldCreateSshTunnel
     Properties:
-      LogGroupName: !Sub /ecs/${Name}Ssh   
+      LogGroupName: !Sub /ecs/${Name}Ssh
+      RetentionInDays: 14
       Tags:
         - Key: Name
           Value: !Sub ${Name}Ssh
