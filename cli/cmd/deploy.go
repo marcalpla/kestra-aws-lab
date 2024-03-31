@@ -335,7 +335,7 @@ func prepareDeployParams(flags deployFlags) ([]types.Parameter, error) {
 }
 
 func deploy(flags deployFlags, template string, params []types.Parameter) error {
-	configAWS, err := config.LoadDefaultConfig(context.TODO(),
+	configAWS, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(flags.awsRegion),
 		config.WithSharedConfigProfile(flags.awsProfile),
 	)
@@ -345,7 +345,7 @@ func deploy(flags deployFlags, template string, params []types.Parameter) error 
 
 	client := cloudformation.NewFromConfig(configAWS)
 
-	_, err = client.CreateStack(context.TODO(), &cloudformation.CreateStackInput{
+	_, err = client.CreateStack(context.Background(), &cloudformation.CreateStackInput{
 		StackName:    aws.String(flags.name),
 		TemplateBody: aws.String(template),
 		Capabilities: []types.Capability{
@@ -361,7 +361,7 @@ func deploy(flags deployFlags, template string, params []types.Parameter) error 
 	for {
 		time.Sleep(3 * time.Second)
 
-		describeStacksOutput, err := client.DescribeStacks(context.TODO(), &cloudformation.DescribeStacksInput{
+		describeStacksOutput, err := client.DescribeStacks(context.Background(), &cloudformation.DescribeStacksInput{
 			StackName: aws.String(flags.name),
 		})
 		if err != nil {

@@ -53,7 +53,7 @@ func init() {
 }
 
 func destroy(flags destroyFlags) error {
-	configAWS, err := config.LoadDefaultConfig(context.TODO(),
+	configAWS, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(flags.awsRegion),
 		config.WithSharedConfigProfile(flags.awsProfile),
 	)
@@ -63,7 +63,7 @@ func destroy(flags destroyFlags) error {
 
 	client := cloudformation.NewFromConfig(configAWS)
 
-	_, err = client.DeleteStack(context.TODO(), &cloudformation.DeleteStackInput{
+	_, err = client.DeleteStack(context.Background(), &cloudformation.DeleteStackInput{
 		StackName: aws.String(flags.name),
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func destroy(flags destroyFlags) error {
 	for {
 		time.Sleep(3 * time.Second)
 
-		describeStacksOutput, err := client.DescribeStacks(context.TODO(), &cloudformation.DescribeStacksInput{
+		describeStacksOutput, err := client.DescribeStacks(context.Background(), &cloudformation.DescribeStacksInput{
 			StackName: aws.String(flags.name),
 		})
 		if err != nil {
