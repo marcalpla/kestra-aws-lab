@@ -515,8 +515,8 @@ Resources:
           CUSTOM_MYSQL_CONFIG_FILE=custom-mysql.cnf
           echo "[mysqld]
           log_bin_trust_function_creators=1
-          sort_buffer_size=2M
-          max_connections=280
+          sort_buffer_size=5M
+          max_connections=200
           innodb_buffer_pool_size=2G
           innodb_log_file_size=512M
           innodb_flush_log_at_trx_commit=2
