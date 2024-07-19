@@ -32,6 +32,10 @@ Parameters:
     Default: ""
     Description: Private IP address for the Kestra EC2 instance
 
+  KestraInstanceType:
+    Type: String
+    Default: t3.large    
+
   KeyPairName:
     Type: String
     Default: "" 
@@ -329,12 +333,12 @@ Resources:
   KestraEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t3.large
+      InstanceType: !Ref KestraInstanceType
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 20
+            VolumeSize: 40
             VolumeType: gp3
             DeleteOnTermination: true
             Encrypted: false
@@ -399,6 +403,7 @@ Resources:
             fi
             mount $DEVICE $MOUNT_POINT
             echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
+            resize2fs $DEVICE
           fi
 
           # Check if credentials are present
@@ -505,6 +510,7 @@ Resources:
               mount $DEVICE $MOUNT_POINT
             fi
             echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
+            resize2fs $DEVICE
           fi
 
           # Register the instance with the service discovery service

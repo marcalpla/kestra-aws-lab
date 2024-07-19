@@ -31,6 +31,7 @@ type deployFlags struct {
 	sshTunnelUser                 string
 	sshTunnelPassword             string
 	privateIPAddresses            []string
+	kestraInstanceType            string
 	keyPairName                   string
 	ebsVolumeIds                  []string
 	efsVolumeIds                  []string
@@ -62,6 +63,7 @@ var deployCmd = &cobra.Command{
 		flags.sshTunnelUser, _ = cmd.Flags().GetString("ssh-tunnel-user")
 		flags.sshTunnelPassword, _ = cmd.Flags().GetString("ssh-tunnel-password")
 		flags.privateIPAddresses, _ = cmd.Flags().GetStringSlice("private-ip-addresses")
+		flags.kestraInstanceType, _ = cmd.Flags().GetString("kestra-instance-type")
 		flags.keyPairName, _ = cmd.Flags().GetString("key-pair-name")
 		flags.ebsVolumeIds, _ = cmd.Flags().GetStringSlice("ebs-volume-ids")
 		flags.efsVolumeIds, _ = cmd.Flags().GetStringSlice("efs-volume-ids")
@@ -110,6 +112,7 @@ func init() {
 	deployCmd.Flags().StringP("ssh-tunnel-user", "u", "", "SSH tunnel user. Required if creating a network")
 	deployCmd.Flags().StringP("ssh-tunnel-password", "p", "", "SSH tunnel password. Required if creating a network")
 	deployCmd.Flags().StringSliceP("private-ip-addresses", "I", []string{}, "Comma-separated list of private IP addresses")
+	deployCmd.Flags().StringP("kestra-instance-type", "m", "t3.large", "Instance type for Kestra EC2 instance")
 	deployCmd.Flags().StringP("key-pair-name", "K", "", "The name of the key pair to use for the EC2 instances")
 	deployCmd.Flags().StringSliceP("ebs-volume-ids", "x", []string{}, "Comma-separated list of EBS volume IDs")
 	deployCmd.Flags().StringSliceP("efs-volume-ids", "y", []string{}, "Comma-separated list of EFS volume IDs")
@@ -208,6 +211,10 @@ func prepareDeployParams(flags deployFlags) ([]types.Parameter, error) {
 		{
 			ParameterKey:   aws.String("CreateNetwork"),
 			ParameterValue: aws.String(fmt.Sprintf("%t", flags.createNetwork)),
+		},
+		{
+			ParameterKey:   aws.String("KestraInstanceType"),
+			ParameterValue: aws.String(flags.kestraInstanceType),
 		},
 		{
 			ParameterKey:   aws.String("KestraImage"),
