@@ -90,6 +90,10 @@ Parameters:
     Default: ""
     NoEcho: true
 
+  JavaXmx:
+    Type: String
+    Default: 7g
+
   DatabaseUser:
     Type: String
     Default: kestra
@@ -426,7 +430,7 @@ Resources:
             --network ${Name} \
             --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
-            -e JAVA_OPTS="-Xmx7g" \
+            -e JAVA_OPTS="-Xmx${JavaXmx}" \
             -v $KESTRA_STORAGE_PATH:/app/storage \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $KESTRA_WORKING_DIRECTORY_PATH:/tmp/kestra-wd \

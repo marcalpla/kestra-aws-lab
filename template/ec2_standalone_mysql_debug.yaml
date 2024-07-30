@@ -90,6 +90,10 @@ Parameters:
     Default: ""
     NoEcho: true
 
+  JavaXmx:
+    Type: String
+    Default: 7g    
+
   DatabaseUser:
     Type: String
     Default: kestra
@@ -447,7 +451,7 @@ Resources:
             --network ${Name} \
             --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
-            -e JAVA_OPTS="-Xmx7g \
+            -e JAVA_OPTS="-Xmx${JavaXmx} \
               -Dcom.sun.management.jmxremote \
               -Dcom.sun.management.jmxremote.port=1099 \
               -Dcom.sun.management.jmxremote.rmi.port=1099 \

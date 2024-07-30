@@ -37,6 +37,7 @@ Parameters:
 * `-b` and `-v`: Subnet ID and VPC ID (required if not creating a network).
 * `-u` and `-p`: SSH Tunnel User and Password (required for network creation).
 * `-I`: Comma-separated private IP addresses to use for the Kestra and Database services.
+* `-m`: Instance type for Kestra EC2 instance (default: t3.large).
 * `-K`: Key Pair Name to use for the EC2 instances.
 * `-x` and `-y`: Comma-separated EBS and EFS volume IDs to use for the Kestra and Database storage.
 * `-V`: Create a Vault service.
@@ -45,6 +46,7 @@ Parameters:
 * `-e` and `-f`: Kestra image repository user and password.
 * `-k`: Kestra config file (default: default.yaml).
 * `-s`: Kestra init script (default: default.sh).
+* `-j`: Java Xmx value for the Kestra service (default: 512m).
 * `-U`: Database user (default: kestra).
 * `-P`: Database password (default: random generated password).
 * `-a`: AWS profile.
