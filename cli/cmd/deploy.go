@@ -43,6 +43,7 @@ type deployFlags struct {
 	kestraConfigFile              string
 	kestraInitScript              string
 	javaXmx                       string
+	timezone                      string
 	databaseUser                  string
 	databasePassword              string
 	awsProfile                    string
@@ -76,6 +77,7 @@ var deployCmd = &cobra.Command{
 		flags.kestraConfigFile, _ = cmd.Flags().GetString("kestra-config-file")
 		flags.kestraInitScript, _ = cmd.Flags().GetString("kestra-init-script")
 		flags.javaXmx, _ = cmd.Flags().GetString("java-xmx")
+		flags.timezone, _ = cmd.Flags().GetString("timezone")
 		flags.databaseUser, _ = cmd.Flags().GetString("database-user")
 		flags.databasePassword, _ = cmd.Flags().GetString("database-password")
 		flags.awsProfile, _ = cmd.Flags().GetString("aws-profile")
@@ -126,6 +128,7 @@ func init() {
 	deployCmd.Flags().StringP("kestra-config-file", "k", "default.yaml", "Kestra config name file in config directory")
 	deployCmd.Flags().StringP("kestra-init-script", "s", "default.sh", "Kestra init name script in init directory")
 	deployCmd.Flags().StringP("java-xmx", "j", "512m", "Java Xmx value for the Kestra service")
+	deployCmd.Flags().StringP("timezone", "z", "UTC", "Timezone for the Kestra EC2 instance")
 	deployCmd.Flags().StringP("database-user", "U", "kestra", "Database user")
 	deployCmd.Flags().StringP("database-password", "P", "", "Database password. If not set, a random password is generated")
 	deployCmd.Flags().StringP("aws-profile", "a", "", "AWS profile")
@@ -226,6 +229,10 @@ func prepareDeployParams(flags deployFlags) ([]types.Parameter, error) {
 		{
 			ParameterKey:   aws.String("JavaXmx"),
 			ParameterValue: aws.String(flags.javaXmx),
+		},
+		{
+			ParameterKey:   aws.String("Timezone"),
+			ParameterValue: aws.String(flags.timezone),
 		},
 		{
 			ParameterKey:   aws.String("DatabaseUser"),

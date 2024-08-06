@@ -92,7 +92,11 @@ Parameters:
 
   JavaXmx:
     Type: String
-    Default: 7g    
+    Default: 7g
+
+  Timezone:
+    Type: String
+    Default: UTC
 
   DatabaseUser:
     Type: String
@@ -382,6 +386,9 @@ Resources:
           # Update system packages
           yum update -y
 
+          # Set timezone
+          timedatectl set-timezone ${Timezone}
+
           # Install Docker
           amazon-linux-extras install docker -y
           service docker start
@@ -424,7 +431,7 @@ Resources:
             if [ "$FS_TYPE" == "data" ]; then
               mkfs -t ext4 $DEVICE
             else
-              KESTRA_INIT_SCRIPT="./kestra-ee server standalone --worker-thread=24"
+              KESTRA_INIT_SCRIPT="[ -x ./kestra-ee ] && ./kestra-ee server standalone --worker-thread=24 || ./kestra server standalone --worker-thread=24"
             fi
             mount $DEVICE $MOUNT_POINT
             echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
