@@ -33,4 +33,5 @@ coverage/
 config/dev*.yaml
 init/dev*.sh
 kestra-aws-lab
+kestra-aws-lab.exe
 presets
