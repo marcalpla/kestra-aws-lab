@@ -127,7 +127,7 @@ func init() {
 	deployCmd.Flags().StringP("kestra-image-repository-password", "f", "", "Kestra image repository password")
 	deployCmd.Flags().StringP("kestra-config-file", "k", "default.yaml", "Kestra config name file in config directory")
 	deployCmd.Flags().StringP("kestra-init-script", "s", "default.sh", "Kestra init name script in init directory")
-	deployCmd.Flags().StringP("java-xmx", "j", "512m", "Java Xmx value for the Kestra service")
+	deployCmd.Flags().StringP("java-xmx", "j", "", "Java Xmx value for the Kestra service")
 	deployCmd.Flags().StringP("timezone", "z", "UTC", "Timezone for the Kestra EC2 instance")
 	deployCmd.Flags().StringP("database-user", "U", "kestra", "Database user")
 	deployCmd.Flags().StringP("database-password", "P", "", "Database password. If not set, a random password is generated")
@@ -225,10 +225,6 @@ func prepareDeployParams(flags deployFlags) ([]types.Parameter, error) {
 		{
 			ParameterKey:   aws.String("KestraImage"),
 			ParameterValue: aws.String(flags.kestraImage),
-		},
-		{
-			ParameterKey:   aws.String("JavaXmx"),
-			ParameterValue: aws.String(flags.javaXmx),
 		},
 		{
 			ParameterKey:   aws.String("Timezone"),
@@ -350,6 +346,14 @@ func prepareDeployParams(flags deployFlags) ([]types.Parameter, error) {
 				ParameterValue: aws.String(flags.kestraImageRepositoryPassword),
 			},
 		}...)
+	}
+
+	// Add Java Xmx parameter if provided
+	if flags.javaXmx != "" {
+		params = append(params, types.Parameter{
+			ParameterKey:   aws.String("JavaXmx"),
+			ParameterValue: aws.String(flags.javaXmx),
+		})
 	}
 
 	return params, nil

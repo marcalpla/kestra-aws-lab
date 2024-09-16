@@ -46,7 +46,7 @@ Parameters:
 * `-e` and `-f`: Kestra image repository user and password.
 * `-k`: Kestra config file (default: default.yaml).
 * `-s`: Kestra init script (default: default.sh).
-* `-j`: Java Xmx value for the Kestra service (default: 512m).
+* `-j`: Java Xmx value for the Kestra service.
 * `-U`: Database user (default: kestra).
 * `-P`: Database password (default: random generated password).
 * `-a`: AWS profile.

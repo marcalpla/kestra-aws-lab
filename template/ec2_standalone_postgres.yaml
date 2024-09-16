@@ -92,7 +92,7 @@ Parameters:
 
   JavaXmx:
     Type: String
-    Default: 7g
+    Default: ""
 
   Timezone:
     Type: String
@@ -432,12 +432,19 @@ Resources:
           KESTRA_CONFIGURATION_PLACEHOLDER
           EOF
 
+          # Set JAVA_OPTS based on JavaXmx value if provided
+          if [ -n "${JavaXmx}" ]; then
+            JAVA_OPTS="-Xmx${JavaXmx}"
+          else
+            JAVA_OPTS=""
+          fi    
+
           # Download and run the Kestra image
           docker run -d --name ${Name} \
             --network ${Name} \
             --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
-            -e JAVA_OPTS="-Xmx${JavaXmx}" \
+            -e JAVA_OPTS="$JAVA_OPTS" \
             -v $KESTRA_STORAGE_PATH:/app/storage \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $KESTRA_WORKING_DIRECTORY_PATH:/tmp/kestra-wd \

@@ -92,7 +92,7 @@ Parameters:
 
   JavaXmx:
     Type: String
-    Default: 7g
+    Default: ""
 
   Timezone:
     Type: String
@@ -453,18 +453,25 @@ Resources:
           KESTRA_CONFIGURATION_PLACEHOLDER
           EOF
 
+          # Set JAVA_OPTS
+          JAVA_OPTS="-Dcom.sun.management.jmxremote \
+            -Dcom.sun.management.jmxremote.port=1099 \
+            -Dcom.sun.management.jmxremote.rmi.port=1099 \
+            -Dcom.sun.management.jmxremote.ssl=false \
+            -Dcom.sun.management.jmxremote.authenticate=false \
+            -Djava.rmi.server.hostname=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)"
+
+          # Append JavaXmx if provided
+          if [ -n "${JavaXmx}" ]; then
+            JAVA_OPTS="-Xmx${JavaXmx} $JAVA_OPTS"
+          fi
+
           # Download and run the Kestra image
           docker run -d --name ${Name} \
             --network ${Name} \
             --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
-            -e JAVA_OPTS="-Xmx${JavaXmx} \
-              -Dcom.sun.management.jmxremote \
-              -Dcom.sun.management.jmxremote.port=1099 \
-              -Dcom.sun.management.jmxremote.rmi.port=1099 \
-              -Dcom.sun.management.jmxremote.ssl=false \
-              -Dcom.sun.management.jmxremote.authenticate=false \
-              -Djava.rmi.server.hostname=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)" \
+            -e JAVA_OPTS="$JAVA_OPTS" \
             -v $KESTRA_STORAGE_PATH:/app/storage \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $KESTRA_WORKING_DIRECTORY_PATH:/tmp/kestra-wd \
