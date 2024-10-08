@@ -25,7 +25,7 @@ func ReplacePlaceholder(body string, placeholder string, replacement string) str
 	}
 	identationText := " "
 	replacement = strings.ReplaceAll(replacement, "\n", "\n"+strings.Repeat(identationText, identation))
-	return strings.Replace(body, placeholder, replacement, 1)
+	return strings.ReplaceAll(body, placeholder, replacement)
 }
 
 func GenerateRandomBase64String(length int) (string, error) {
