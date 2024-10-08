@@ -479,7 +479,7 @@ Resources:
   MysqlEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t3.medium
+      InstanceType: t3.large
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
@@ -539,17 +539,17 @@ Resources:
           CUSTOM_MYSQL_CONFIG_FILE=custom-mysql.cnf
           echo "[mysqld]
           log_bin_trust_function_creators=1
-          sort_buffer_size=5M
+          sort_buffer_size=12M
           max_connections=200
-          innodb_buffer_pool_size=2G
+          innodb_buffer_pool_size=6G
           innodb_log_file_size=512M
           innodb_flush_log_at_trx_commit=2
-          thread_cache_size=8
+          thread_cache_size=16
           table_open_cache=2000
           innodb_file_per_table=1
           innodb_flush_method=O_DIRECT
-          tmp_table_size=64M
-          max_heap_table_size=64M" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
+          tmp_table_size=128M
+          max_heap_table_size=128M" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
           chown 1000:1000 $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
 
           # Run Docker container for the Mysql server
