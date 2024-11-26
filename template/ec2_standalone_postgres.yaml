@@ -31,6 +31,10 @@ Parameters:
     Type: String
     Default: ""
     Description: Private IP address for the Kestra EC2 instance
+  PrivateIpAddress2:
+    Type: String
+    Default: ""
+    Description: Private IP address for the Postgres EC2 instance       
 
   KestraInstanceType:
     Type: String
@@ -41,10 +45,6 @@ Parameters:
     Default: "" 
 
   EbsVolumeId1:
-    Type: String
-    Default: ""
-    Description: EBS Volume for Kestra storage
-  EbsVolumeId2:
     Type: String
     Default: ""
     Description: EBS Volume for Postgres storage
@@ -113,11 +113,11 @@ Conditions:
     - !Not [ !Equals [ !Ref SshTunnelPassword, "" ] ]
 
   PrivateIpAddress1Specified: !Not [ !Equals [ !Ref PrivateIpAddress1, "" ] ]
+  PrivateIpAddress2Specified: !Not [ !Equals [ !Ref PrivateIpAddress2, "" ] ]  
 
   KeyPairNameSpecified: !Not [ !Equals [ !Ref KeyPairName, "" ] ]
 
   EbsVolumeId1Specified: !Not [ !Equals [ !Ref EbsVolumeId1, "" ] ]
-  EbsVolumeId2Specified: !Not [ !Equals [ !Ref EbsVolumeId2, "" ] ]
 
   Tag1Specified: !And 
     - !Not [ !Equals [ !Ref TagKey1, "" ] ]
@@ -278,6 +278,16 @@ Resources:
       SourceSecurityGroupId: !If [ ShouldCreateSshTunnel, !Ref SecurityGroup, !Ref AWS::NoValue ]
       CidrIp: !If [ ShouldCreateSshTunnel, !Ref AWS::NoValue, 0.0.0.0/0 ]
 
+  SecurityGroupIngressHttps:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId: !If [ ShouldCreateSshTunnel, !Ref SecurityGroup, !Ref AWS::NoValue ]
+      CidrIp: !If [ ShouldCreateSshTunnel, !Ref AWS::NoValue, 0.0.0.0/0 ] 
+
   SecurityGroupIngressSshTunnel:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: ShouldCreateSshTunnel
@@ -391,31 +401,12 @@ Resources:
 
           # Create a directory for Kestra working directory
           KESTRA_WORKING_DIRECTORY_PATH=/tmp/kestra-wd
-          mkdir -p $KESTRA_WORKING_DIRECTORY_PATH   
-
-          # Create a directory for Kestra storage
-          KESTRA_STORAGE_PATH=/app/storage
-          mkdir -p $KESTRA_STORAGE_PATH
+          mkdir -p $KESTRA_WORKING_DIRECTORY_PATH
 
           # Define the Kestra startup script
           read -r -d '' KESTRA_INIT_SCRIPT << EOF
           KESTRA_INIT_SCRIPT_PLACEHOLDER
           EOF
-
-          # Mount the EBS volume for Kestra storage if present
-          if [ ! -z "${EbsVolumeId1}" ]; then
-            DEVICE=$(readlink -f /dev/sdf)
-            MOUNT_POINT=$KESTRA_STORAGE_PATH
-            FS_TYPE=$(file -s $DEVICE | cut -d' ' -f2)
-            if [ "$FS_TYPE" == "data" ]; then
-              mkfs -t ext4 $DEVICE
-            else
-              KESTRA_INIT_SCRIPT="[ -x ./kestra-ee ] && ./kestra-ee server standalone --worker-thread=24 || ./kestra server standalone --worker-thread=24"
-            fi
-            mount $DEVICE $MOUNT_POINT
-            echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
-            resize2fs $DEVICE
-          fi
 
           # Check if credentials are present
           if [ "${KestraImageRepositoryUser}" != "" ] && [ "${KestraImageRepositoryPassword}" != "" ]; then
@@ -429,15 +420,22 @@ Resources:
 
           # Define Kestra configuration
           read -r -d '' KESTRA_CONFIGURATION << EOF
-          KESTRA_CONFIGURATION_PLACEHOLDER
+          KESTRA_CONFIGURATION_PLACEHOLDER_1
           EOF
 
-          # Set JAVA_OPTS based on JavaXmx value if provided
+          # Set JAVA_OPTS
+          JAVA_OPTS="-Djsch.server_host_key=ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256,ssh-rsa $JAVA_OPTS"
+          JAVA_OPTS="-Djsch.cipher=aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes256-cbc,aes192-cbc $JAVA_OPTS"
           if [ -n "${JavaXmx}" ]; then
-            JAVA_OPTS="-Xmx${JavaXmx}"
-          else
-            JAVA_OPTS=""
-          fi    
+            JAVA_OPTS="-Xmx${JavaXmx} $JAVA_OPTS"
+          fi
+
+          # Create the SSL key store
+          SSL_KEY_STORE_PATH=/app/ssl_key_store
+          mkdir -p $(dirname $SSL_KEY_STORE_PATH)
+          base64 -d << EOF > $SSL_KEY_STORE_PATH
+          SSL_KEY_STORE_PLACEHOLDER
+          EOF            
 
           # Download and run the Kestra image
           docker run -d --name ${Name} \
@@ -445,11 +443,12 @@ Resources:
             --user root \
             -e KESTRA_CONFIGURATION="$KESTRA_CONFIGURATION" \
             -e JAVA_OPTS="$JAVA_OPTS" \
-            -v $KESTRA_STORAGE_PATH:/app/storage \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $KESTRA_WORKING_DIRECTORY_PATH:/tmp/kestra-wd \
+            -v $SSL_KEY_STORE_PATH:/app/ssl_key_store:ro \
             -p 8080:8080 \
             -p 8081:8081 \
+            -p 443:443 \
             --restart unless-stopped \
             --log-driver=awslogs \
             --log-opt awslogs-region=${AWS::Region} \
@@ -494,6 +493,7 @@ Resources:
           GroupSet:
             - !Ref SecurityGroup
           SubnetId: !If [ ShouldCreateNetwork, !Ref SubnetA, !Ref ExistingSubnetId ]
+          PrivateIpAddress: !If [ PrivateIpAddress2Specified, !Ref PrivateIpAddress2, !Ref AWS::NoValue ]          
       KeyName: !If [ KeyPairNameSpecified, !Ref KeyPairName, !Ref AWS::NoValue ]
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
@@ -514,7 +514,7 @@ Resources:
           chown 999:999 $POSTGRES_DATA_PATH
 
           # Mount the EBS volume for Postgres storage if present
-          if [ ! -z "${EbsVolumeId2}" ]; then
+          if [ ! -z "${EbsVolumeId1}" ]; then
             DEVICE=$(readlink -f /dev/sdf)
             MOUNT_POINT=$POSTGRES_DATA_PATH
             FS_TYPE=$(file -s $DEVICE | cut -d' ' -f2)
@@ -627,16 +627,8 @@ Resources:
     Condition: EbsVolumeId1Specified
     Properties:
       Device: /dev/sdf
-      InstanceId: !Ref KestraEC2Instance
-      VolumeId: !Ref EbsVolumeId1
-
-  EbsVolumeAttachment2:
-    Type: AWS::EC2::VolumeAttachment
-    Condition: EbsVolumeId2Specified
-    Properties:
-      Device: /dev/sdf
       InstanceId: !Ref PostgresEC2Instance
-      VolumeId: !Ref EbsVolumeId2
+      VolumeId: !Ref EbsVolumeId1
 
   # Logs
   

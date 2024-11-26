@@ -29,6 +29,7 @@ coverage/
 # Private keys
 *.pem
 *.key
+*.p12
 
 config/dev*.yaml
 init/dev*.sh

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,8 +41,9 @@ type deployFlags struct {
 	kestraImage                   string
 	kestraImageRepositoryUser     string
 	kestraImageRepositoryPassword string
-	kestraConfigFile              string
+	kestraConfigFiles             []string
 	kestraInitScript              string
+	sslKeyStoreFile               string
 	javaXmx                       string
 	timezone                      string
 	databaseUser                  string
@@ -74,8 +76,9 @@ var deployCmd = &cobra.Command{
 		flags.kestraImage, _ = cmd.Flags().GetString("kestra-image")
 		flags.kestraImageRepositoryUser, _ = cmd.Flags().GetString("kestra-image-repository-user")
 		flags.kestraImageRepositoryPassword, _ = cmd.Flags().GetString("kestra-image-repository-password")
-		flags.kestraConfigFile, _ = cmd.Flags().GetString("kestra-config-file")
+		flags.kestraConfigFiles, _ = cmd.Flags().GetStringSlice("kestra-config-files")
 		flags.kestraInitScript, _ = cmd.Flags().GetString("kestra-init-script")
+		flags.sslKeyStoreFile, _ = cmd.Flags().GetString("ssl-key-store-file")
 		flags.javaXmx, _ = cmd.Flags().GetString("java-xmx")
 		flags.timezone, _ = cmd.Flags().GetString("timezone")
 		flags.databaseUser, _ = cmd.Flags().GetString("database-user")
@@ -125,8 +128,9 @@ func init() {
 	deployCmd.Flags().StringP("kestra-image", "i", "kestra/kestra:latest-full", "Kestra image")
 	deployCmd.Flags().StringP("kestra-image-repository-user", "e", "", "Kestra image repository user")
 	deployCmd.Flags().StringP("kestra-image-repository-password", "f", "", "Kestra image repository password")
-	deployCmd.Flags().StringP("kestra-config-file", "k", "default.yaml", "Kestra config name file in config directory")
+	deployCmd.Flags().StringSliceP("kestra-config-files", "k", []string{"default.yml"}, "Comma-separated list of Kestra config files in config directory")
 	deployCmd.Flags().StringP("kestra-init-script", "s", "default.sh", "Kestra init name script in init directory")
+	deployCmd.Flags().StringP("ssl-key-store-file", "S", "", "SSL key store file for the Kestra web server")
 	deployCmd.Flags().StringP("java-xmx", "j", "", "Java Xmx value for the Kestra service")
 	deployCmd.Flags().StringP("timezone", "z", "UTC", "Timezone for the Kestra EC2 instance")
 	deployCmd.Flags().StringP("database-user", "U", "kestra", "Database user")
@@ -179,10 +183,15 @@ func prepareDeployTemplate(flags deployFlags) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	templateBodyString := string(templateBody)
 
-	kestraConfigBody, err := os.ReadFile(filepath.Join(exeDir, "config", flags.kestraConfigFile))
-	if err != nil {
-		return "", err
+	for i, kestraConfigFile := range flags.kestraConfigFiles {
+		kestraConfigBody, err := os.ReadFile(filepath.Join(exeDir, "config", kestraConfigFile))
+		if err != nil {
+			return "", err
+		}
+
+		templateBodyString = utils.ReplacePlaceholder(templateBodyString, fmt.Sprintf("KESTRA_CONFIGURATION_PLACEHOLDER_%d", i+1), string(kestraConfigBody))
 	}
 
 	kestraInitScriptBody, err := os.ReadFile(filepath.Join(exeDir, "init", flags.kestraInitScript))
@@ -190,10 +199,16 @@ func prepareDeployTemplate(flags deployFlags) (string, error) {
 		return "", err
 	}
 
-	templateBodyString := string(templateBody)
-
-	templateBodyString = utils.ReplacePlaceholder(templateBodyString, "KESTRA_CONFIGURATION_PLACEHOLDER", string(kestraConfigBody))
 	templateBodyString = utils.ReplacePlaceholder(templateBodyString, "KESTRA_INIT_SCRIPT_PLACEHOLDER", string(kestraInitScriptBody))
+
+	if flags.sslKeyStoreFile != "" {
+		sslKeyStoreBody, err := os.ReadFile(filepath.Join(exeDir, "config", flags.sslKeyStoreFile))
+		if err != nil {
+			return "", err
+		}
+
+		templateBodyString = utils.ReplacePlaceholder(templateBodyString, "SSL_KEY_STORE_PLACEHOLDER", base64.StdEncoding.EncodeToString(sslKeyStoreBody))
+	}
 
 	return templateBodyString, nil
 }

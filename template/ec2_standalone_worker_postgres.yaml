@@ -38,7 +38,7 @@ Parameters:
   PrivateIpAddress3:
     Type: String
     Default: ""
-    Description: Private IP address for the Mysql EC2 instance
+    Description: Private IP address for the Postgres EC2 instance       
 
   KestraInstanceType:
     Type: String
@@ -51,7 +51,7 @@ Parameters:
   EbsVolumeId1:
     Type: String
     Default: ""
-    Description: EBS Volume for Mysql storage
+    Description: EBS Volume for Postgres storage
 
   VaultToken:
     Type: String
@@ -118,7 +118,7 @@ Conditions:
 
   PrivateIpAddress1Specified: !Not [ !Equals [ !Ref PrivateIpAddress1, "" ] ]
   PrivateIpAddress2Specified: !Not [ !Equals [ !Ref PrivateIpAddress2, "" ] ]
-  PrivateIpAddress3Specified: !Not [ !Equals [ !Ref PrivateIpAddress3, "" ] ]
+  PrivateIpAddress3Specified: !Not [ !Equals [ !Ref PrivateIpAddress3, "" ] ]  
 
   KeyPairNameSpecified: !Not [ !Equals [ !Ref KeyPairName, "" ] ]
 
@@ -136,7 +136,7 @@ Conditions:
 
   HasKestraImageRepositoryCredentials: !And
     - !Not [ !Equals [ !Ref KestraImageRepositoryUser, "" ] ]
-    - !Not [ !Equals [ !Ref KestraImageRepositoryPassword, "" ] ]
+    - !Not [ !Equals [ !Ref KestraImageRepositoryPassword, "" ] ] 
 
 Resources:
 
@@ -264,15 +264,14 @@ Resources:
             Value: !Ref TagValue2
           - !Ref AWS::NoValue
 
-  SecurityGroupIngressMysql:
+  SecurityGroupIngressPostgres:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       GroupId: !Ref SecurityGroup
       IpProtocol: tcp
-      FromPort: 3306
-      ToPort: 3306
-      SourceSecurityGroupId: !If [ ShouldCreateSshTunnel, !Ref SecurityGroup, !Ref AWS::NoValue ]
-      CidrIp: !If [ ShouldCreateSshTunnel, !Ref AWS::NoValue, 0.0.0.0/0 ]
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref SecurityGroup
 
   SecurityGroupIngressHttp:
     Type: AWS::EC2::SecurityGroupIngress
@@ -292,7 +291,7 @@ Resources:
       FromPort: 443
       ToPort: 443
       SourceSecurityGroupId: !If [ ShouldCreateSshTunnel, !Ref SecurityGroup, !Ref AWS::NoValue ]
-      CidrIp: !If [ ShouldCreateSshTunnel, !Ref AWS::NoValue, 0.0.0.0/0 ] 
+      CidrIp: !If [ ShouldCreateSshTunnel, !Ref AWS::NoValue, 0.0.0.0/0 ]
 
   SecurityGroupIngressSsh:
     Type: AWS::EC2::SecurityGroupIngress
@@ -302,7 +301,7 @@ Resources:
       FromPort: 22
       ToPort: 22
       SourceSecurityGroupId: !If [ ShouldCreateSshTunnel, !Ref SecurityGroup, !Ref AWS::NoValue ]
-      CidrIp: !If [ ShouldCreateSshTunnel, !Ref AWS::NoValue, 0.0.0.0/0 ]
+      CidrIp: !If [ ShouldCreateSshTunnel, !Ref AWS::NoValue, 0.0.0.0/0 ]      
 
   SecurityGroupIngressSshTunnel:
     Type: AWS::EC2::SecurityGroupIngress
@@ -335,11 +334,11 @@ Resources:
             Value: !Ref TagValue2
           - !Ref AWS::NoValue
 
-  MysqlServiceDiscoveryService:
+  PostgresServiceDiscoveryService:
     Type: AWS::ServiceDiscovery::Service
     Properties:
-      Name: !Sub ${Name}Mysql
-      Description: Discover Mysql service
+      Name: !Sub ${Name}Postgres
+      Description: Discover Postgres service
       NamespaceId: 
         Ref: CloudMapNamespace
       DnsConfig:
@@ -350,7 +349,7 @@ Resources:
         FailureThreshold: 1    
       Tags:
         - Key: Name
-          Value: !Sub ${Name}Mysql
+          Value: !Sub ${Name}Postgres
         - !If
           - Tag1Specified
           - Key: !Ref TagKey1
@@ -556,7 +555,7 @@ Resources:
           JAVA_OPTS="-Djsch.cipher=aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes256-cbc,aes192-cbc $JAVA_OPTS"
           if [ -n "${JavaXmx}" ]; then
             JAVA_OPTS="-Xmx${JavaXmx} $JAVA_OPTS"
-          fi        
+          fi              
 
           # Download and run the Kestra image
           docker run -d --name ${Name} \
@@ -592,7 +591,7 @@ Resources:
             Value: !Ref TagValue3
           - !Ref AWS::NoValue          
 
-  MysqlEC2Instance:
+  PostgresEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.large
@@ -625,22 +624,22 @@ Resources:
           service docker start
           systemctl enable docker
 
-          # Create a directory for Mysql storage
-          MYSQL_DATA_PATH=/var/lib/mysql
-          mkdir -p $MYSQL_DATA_PATH
-          chown 1000:1000 $MYSQL_DATA_PATH
+          # Create a directory for Postgres storage
+          POSTGRES_DATA_PATH=/var/lib/postgresql/data
+          mkdir -p $POSTGRES_DATA_PATH
+          chown 999:999 $POSTGRES_DATA_PATH
 
-          # Mount the EBS volume for Mysql storage if present
+          # Mount the EBS volume for Postgres storage if present
           if [ ! -z "${EbsVolumeId1}" ]; then
             DEVICE=$(readlink -f /dev/sdf)
-            MOUNT_POINT=$MYSQL_DATA_PATH
+            MOUNT_POINT=$POSTGRES_DATA_PATH
             FS_TYPE=$(file -s $DEVICE | cut -d' ' -f2)
             # If the volume is not formatted, format it and prepare it
             if [ "$FS_TYPE" == "data" ]; then
               mkfs -t ext4 $DEVICE
               mount $DEVICE $MOUNT_POINT
               rm -rf $MOUNT_POINT/lost+found
-              chown 1000:1000 $MOUNT_POINT       
+              chown 999:999 $MOUNT_POINT       
             else
               mount $DEVICE $MOUNT_POINT
             fi
@@ -649,44 +648,45 @@ Resources:
           fi
 
           # Register the instance with the service discovery service
-          aws servicediscovery register-instance --service-id ${MysqlServiceDiscoveryService} --instance-id $(curl http://169.254.169.254/latest/meta-data/instance-id) --attributes AWS_INSTANCE_IPV4=$(curl http://169.254.169.254/latest/meta-data/local-ipv4) --region ${AWS::Region}
+          aws servicediscovery register-instance --service-id ${PostgresServiceDiscoveryService} --instance-id $(curl http://169.254.169.254/latest/meta-data/instance-id) --attributes AWS_INSTANCE_IPV4=$(curl http://169.254.169.254/latest/meta-data/local-ipv4) --region ${AWS::Region}
 
-          # Create a custom MySQL configuration file
-          CUSTOM_MYSQL_CONFIG_PATH=/home/ec2-user
-          CUSTOM_MYSQL_CONFIG_FILE=custom-mysql.cnf
-          echo "[mysqld]
-          log_bin_trust_function_creators=1
-          sort_buffer_size=12M
-          max_connections=200
-          innodb_buffer_pool_size=6G
-          innodb_log_file_size=512M
-          innodb_flush_log_at_trx_commit=2
-          thread_cache_size=16
-          table_open_cache=2000
-          innodb_file_per_table=1
-          innodb_flush_method=O_DIRECT
-          tmp_table_size=128M
-          max_heap_table_size=128M" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
-          chown 1000:1000 $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
+          # Create a custom Postgres configuration file
+          CUSTOM_POSTGRES_CONFIG_PATH=/home/ec2-user
+          CUSTOM_POSTGRES_CONFIG_FILE=custom-postgres.conf
+          echo "max_connections = 150
+          shared_buffers = 2560MB
+          work_mem = 16MB
+          maintenance_work_mem = 256MB
+          effective_cache_size = 6656MB
+          logging_collector = on
+          log_min_duration_statement = 1000
+          checkpoint_timeout = 15min
+          checkpoint_completion_target = 0.9
+          wal_buffers = 16MB
+          default_statistics_target = 100
+          synchronous_commit = off
+          random_page_cost = 1.1
+          listen_addresses = '*'" > $CUSTOM_POSTGRES_CONFIG_PATH/$CUSTOM_POSTGRES_CONFIG_FILE
 
-          # Run Docker container for the Mysql server
-          docker run -d --name ${Name}Mysql \
-            -e MYSQL_RANDOM_ROOT_PASSWORD=yes \
-            -e MYSQL_USER=${DatabaseUser} \
-            -e MYSQL_PASSWORD=${DatabasePassword} \
-            -e MYSQL_DATABASE=kestra \
-            -v $MYSQL_DATA_PATH:/var/lib/mysql \
-            -v $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE:/etc/mysql/conf.d/$CUSTOM_MYSQL_CONFIG_FILE:ro \
-            -p 3306:3306 \
-            --user 1000:1000 \
+          chown 999:999 $CUSTOM_POSTGRES_CONFIG_PATH/$CUSTOM_POSTGRES_CONFIG_FILE
+
+          # Run Docker container for the Postgres server
+          docker run -d --name ${Name}Postgres \
+            -e POSTGRES_USER=${DatabaseUser} \
+            -e POSTGRES_PASSWORD=${DatabasePassword} \
+            -e POSTGRES_DB=kestra \
+            -v $POSTGRES_DATA_PATH:/var/lib/postgresql/data \
+            -v $CUSTOM_POSTGRES_CONFIG_PATH/$CUSTOM_POSTGRES_CONFIG_FILE:/etc/postgresql/postgresql.conf:ro \
+            -p 5432:5432 \
             --restart unless-stopped \
             --log-driver=awslogs \
             --log-opt awslogs-region=${AWS::Region} \
-            --log-opt awslogs-group=${MysqlEC2LogGroup} \
-            mysql:8.3
+            --log-opt awslogs-group=${PostgresEC2LogGroup} \
+            postgres:15.3 \
+            -c 'config_file=/etc/postgresql/postgresql.conf'
       Tags:
         - Key: Name
-          Value: !Sub ${Name}Mysql
+          Value: !Sub ${Name}Postgres
         - !If
           - Tag1Specified
           - Key: !Ref TagKey1
@@ -766,7 +766,7 @@ Resources:
     Condition: EbsVolumeId1Specified
     Properties:
       Device: /dev/sdf
-      InstanceId: !Ref MysqlEC2Instance
+      InstanceId: !Ref PostgresEC2Instance
       VolumeId: !Ref EbsVolumeId1
 
   # Logs
@@ -790,14 +790,14 @@ Resources:
             Value: !Ref TagValue2
           - !Ref AWS::NoValue
 
-  MysqlEC2LogGroup:
+  PostgresEC2LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /ec2/${Name}Mysql
+      LogGroupName: !Sub /ec2/${Name}Postgres
       RetentionInDays: 14
       Tags:
         - Key: Name
-          Value: !Sub ${Name}Mysql
+          Value: !Sub ${Name}Postgres
         - !If
           - Tag1Specified
           - Key: !Ref TagKey1
