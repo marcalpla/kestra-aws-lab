@@ -631,7 +631,13 @@ Resources:
 
           # Mount the EBS volume for Postgres storage if present
           if [ ! -z "${EbsVolumeId1}" ]; then
-            DEVICE=$(readlink -f /dev/sdf)
+            while true; do
+              DEVICE=$(readlink -f /dev/sdf)
+              if [ -b $DEVICE ]; then
+                break
+              fi
+              sleep 5
+            done
             MOUNT_POINT=$POSTGRES_DATA_PATH
             FS_TYPE=$(file -s $DEVICE | cut -d' ' -f2)
             # If the volume is not formatted, format it and prepare it
