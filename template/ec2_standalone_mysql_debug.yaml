@@ -396,9 +396,6 @@ Resources:
           # Update system packages
           yum update -y
 
-          # Set timezone
-          timedatectl set-timezone ${Timezone}
-
           # Install Docker
           amazon-linux-extras install docker -y
           service docker start
@@ -453,6 +450,7 @@ Resources:
             -Djava.rmi.server.hostname=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)"
           JAVA_OPTS="-Djsch.server_host_key=ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256,ssh-rsa $JAVA_OPTS"
           JAVA_OPTS="-Djsch.cipher=aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes256-cbc,aes192-cbc $JAVA_OPTS"
+          JAVA_OPTS="-Duser.language=es -Duser.country=ES -Duser.timezone=Europe/Madrid $JAVA_OPTS"
           if [ -n "${JavaXmx}" ]; then
             JAVA_OPTS="-Xmx${JavaXmx} $JAVA_OPTS"
           fi
@@ -573,8 +571,8 @@ Resources:
           CUSTOM_MYSQL_CONFIG_FILE=custom-mysql.cnf
           echo "[mysqld]
           log_bin_trust_function_creators=1
-          sort_buffer_size=5M
-          max_connections=200
+          sort_buffer_size=20M
+          max_connections=40
           innodb_buffer_pool_size=2G
           innodb_log_file_size=512M
           innodb_flush_log_at_trx_commit=2
@@ -583,7 +581,8 @@ Resources:
           innodb_file_per_table=1
           innodb_flush_method=O_DIRECT
           tmp_table_size=64M
-          max_heap_table_size=64M" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
+          max_heap_table_size=64M
+          binlog_expire_logs_seconds=86400" > $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
           chown 1000:1000 $CUSTOM_MYSQL_CONFIG_PATH/$CUSTOM_MYSQL_CONFIG_FILE
 
           # Run Docker container for the Mysql server
